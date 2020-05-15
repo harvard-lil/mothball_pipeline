@@ -1,0 +1,1 @@
+Internal repo to coordinate use of [s3mothball](https://github.com/harvard-lil/s3mothball).
