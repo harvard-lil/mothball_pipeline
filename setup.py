@@ -21,7 +21,7 @@ setuptools.setup(
     ],
     entry_points = {
         'console_scripts': [
-            'mothball_pipeline=mothball_pipeline:main',
+            'mothball_pipeline=mothball_pipeline.mothball_pipeline:main',
         ],
     }
 )
