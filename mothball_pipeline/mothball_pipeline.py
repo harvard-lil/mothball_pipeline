@@ -55,7 +55,7 @@ def safe_job_name(s):
 
 def queue_job(name, queue, definition, *args):
     name = safe_job_name(name)
-    print("- %s: %s", name, args)
+    print("- %s: %s" % (name, args))
     batch_client.submit_job(
         jobName=safe_job_name(name),
         jobQueue=queue,
