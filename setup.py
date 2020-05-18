@@ -5,7 +5,6 @@ setuptools.setup(
     version="0.0.1",
     author="Jack Cushman",
     author_email="jcushman@law.harvard.edu",
-    packages=setuptools.find_packages(),
     install_requires=[
         "boto3",
         "smart-open>=1.10.0",
