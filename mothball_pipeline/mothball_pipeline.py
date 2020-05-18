@@ -157,7 +157,7 @@ def queue_unglacier(args, parser):
             'unglacier-%s' % key, args.job_queue, args.job_definition,
             'unglacier', 's3://' + source_path,
         )
-        if i >= args.limit:
+        if i >= args.limit-1:
             break
 
 
@@ -175,7 +175,7 @@ def queue_archive(args, parser):
             'archive-%s' % key, args.job_queue, args.job_definition,
             'archive', 's3://' + source_path,
         )
-        if i >= args.limit:
+        if i >= args.limit-1:
             break
 
 
@@ -187,7 +187,7 @@ def queue_delete(args, parser):
             'delete-%s' % key, args.job_queue, args.job_definition,
             'delete', 's3://' + source_path,
         )
-        if i >= args.limit:
+        if i >= args.limit-1:
             break
 
 # main
