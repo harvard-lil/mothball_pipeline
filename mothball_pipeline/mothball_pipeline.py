@@ -12,7 +12,7 @@ from smart_open import open, parse_uri
 config = Config(retries={'max_attempts': 10, 'mode': 'standard'})
 s3_client = boto3.client('s3', config=config)
 s3_resource = boto3.resource('s3')
-batch_client = boto3.client('batch', config=config)
+
 
 # helpers
 
@@ -56,6 +56,7 @@ def safe_job_name(s):
 def queue_job(name, queue, definition, *args):
     name = safe_job_name(name)
     print("- %s: %s" % (name, args))
+    batch_client = boto3.client('batch', config=config)
     batch_client.submit_job(
         jobName=safe_job_name(name),
         jobQueue=queue,
