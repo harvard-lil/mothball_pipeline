@@ -19,9 +19,6 @@ setuptools.setup(
     setup_requires=[
         'pytest-runner',
     ],
-    dependency_links=[
-        'https://github.com/harvard-lil/s3mothball/archive/master.zip#egg=s3mothball',
-    ],
     entry_points = {
         'console_scripts': [
             'mothball_pipeline=mothball_pipeline:main',
