@@ -61,9 +61,9 @@ def queue_job(name, queue, definition, *args):
         jobQueue=queue,
         jobDefinition=definition,
         containerOverrides={
-            'command': [
+            'command': (
                 'mothball_pipeline',
-            ] + args,
+            ) + args,
         },
     )
 
