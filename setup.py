@@ -10,7 +10,6 @@ setuptools.setup(
         "boto3",
         "smart-open>=1.10.0",
         "tqdm",
-        "s3mothball",
     ],
     tests_require=[
         "pytest",
