@@ -1,5 +1,7 @@
 import argparse
+import re
 from contextlib import contextmanager
+from functools import partial
 from time import time
 
 import boto3
@@ -49,24 +51,15 @@ def iter_objects(url):
     return bucket.objects.filter(Prefix=key)
 
 
-def safe_job_name(s):
-    return s.replace('/', '_').replace('.', '_')
-
-
-def queue_job(name, queue, definition, *args):
-    name = safe_job_name(name)
-    print("- %s: %s" % (name, args))
+def iter_unfinished_jobs(queue):
     batch_client = boto3.client('batch', config=config)
-    batch_client.submit_job(
-        jobName=safe_job_name(name),
-        jobQueue=queue,
-        jobDefinition=definition,
-        containerOverrides={
-            'command': (
-                'mothball_pipeline',
-            ) + args,
-        },
-    )
+    for status in ('SUBMITTED', 'PENDING', 'RUNNABLE', 'STARTING', 'RUNNING'):
+        for page in batch_client.get_paginator('list_jobs').paginate(jobQueue=queue, jobStatus=status):
+            yield from page.get('jobSummaryList', [])
+
+
+def safe_job_name(s):
+    return re.sub(r'[^a-zA-Z0-9\-_]', '_', s)
 
 
 def exists(path):
@@ -150,44 +143,38 @@ def do_delete(args, parser):
 
 # C&C
 
-def queue_unglacier(args, parser):
-    for i, obj in enumerate(iter_objects('s3://harvard-cap-attic/steps/unglacier')):
+def queue_step(step, args, parser):
+    check_timestamp = step == 'archive'
+    existing_job_names = set(j['jobName'] for j in iter_unfinished_jobs(args.job_queue))
+    for i, obj in enumerate(iter_objects('s3://harvard-cap-attic/steps/%s' % step)):
+        if check_timestamp:
+            with open("s3://%s/%s" % (obj.bucket_name, obj.key)) as f:
+                timestamp = int(f.read())
+            if timestamp > time() - 60*60*24:
+                print("Skipping s3://%s/%s as too new" % (obj.bucket_name, obj.key))
+                continue
         key = obj.key
-        source_path = key.split('steps/unglacier/', 1)[1]
-        queue_job(
-            'unglacier-%s' % key, args.job_queue, args.job_definition,
-            'unglacier', 's3://' + source_path,
-        )
-        if args.limit and i >= args.limit-1:
-            break
+        source_path = key.split('steps/%s/' % step, 1)[1]
+        job_name = safe_job_name('%s-%s' % (step, key))
 
-
-def queue_archive(args, parser):
-    run_jobs_before = int(time()) - 60*60*24
-    for i, obj in enumerate(iter_objects('s3://harvard-cap-attic/steps/archive')):
-        with open("s3://%s/%s" % (obj.bucket_name, obj.key)) as f:
-            timestamp = int(f.read())
-        if timestamp > run_jobs_before:
-            print("Skipping s3://%s/%s as too new" % (obj.bucket_name, obj.key))
+        # skip if job is already queued
+        if job_name in existing_job_names:
+            print("- skipping %s, already queued" % job_name)
             continue
-        key = obj.key
-        source_path = key.split('steps/archive/', 1)[1]
-        queue_job(
-            'archive-%s' % key, args.job_queue, args.job_definition,
-            'archive', 's3://' + source_path,
-        )
-        if args.limit and i >= args.limit-1:
-            break
 
+        print("- %s: %s" % (job_name, source_path))
 
-def queue_delete(args, parser):
-    for i, obj in enumerate(iter_objects('s3://harvard-cap-attic/steps/delete')):
-        key = obj.key
-        source_path = key.split('steps/delete/', 1)[1]
-        queue_job(
-            'delete-%s' % key, args.job_queue, args.job_definition,
-            'delete', 's3://' + source_path,
+        # queue job
+        batch_client = boto3.client('batch', config=config)
+        batch_client.submit_job(
+            jobName=job_name,
+            jobQueue=args.job_queue,
+            jobDefinition=args.job_definition,
+            containerOverrides={
+                'command': ('mothball_pipeline', step, 's3://' + source_path),
+            },
         )
+
         if args.limit and i >= args.limit-1:
             break
 
@@ -203,7 +190,7 @@ def main():
         create_parser.add_argument('job_queue')
         create_parser.add_argument('job_definition')
         create_parser.add_argument('--limit', type=int, default=1, help='Max number of jobs to queue; 0 for unlimited')
-        create_parser.set_defaults(func=globals()['queue_'+command])
+        create_parser.set_defaults(func=partial(queue_step, command))
 
     # unglacier
     create_parser = subparsers.add_parser('unglacier')
